@@ -1,9 +1,11 @@
 # 이것은 각 상태들을 객체로 구현한 것임.
 
-from pico2d import load_image, SDL_KEYDOWN, SDL_KEYUP, SDLK_SPACE, SDLK_RIGHT, SDLK_LEFT, get_time
+from pico2d import load_image, SDL_KEYDOWN, SDL_KEYUP, SDLK_SPACE, SDLK_RIGHT, SDLK_LEFT, SDLK_a, get_time
 import math
 
 #define event check functions
+def a_down(e):
+    return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_a
 def space_down(e):
     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_SPACE
 
@@ -21,6 +23,39 @@ def left_down(e):
 
 def left_up(e):
     return e[0] == 'INPUT' and e[1].type == SDL_KEYUP and e[1].key == SDLK_LEFT
+
+class AutoRun:
+    @staticmethod
+    def enter(boy, e):
+
+        if boy.action == 2:
+             boy.dir, boy.action = -1, 0
+        elif boy.action == 3:
+            boy.dir, boy.action = 1, 1
+        boy.auto_run_start_time = get_time()
+
+    @staticmethod
+    def exit(boy, e):
+        pass
+
+    @staticmethod
+    def do(boy):
+        if boy.x < 0:
+            boy.dir, boy.action = 1, 1
+        elif boy.x > 800:
+            boy.dir, boy.action = -1, 0
+
+        boy.frame = (boy.frame + 1) % 8
+        boy.x += boy.dir * 10
+        if get_time() - boy.auto_run_start_time > 5:
+            boy.state_machine.handle_event(('TIME_OUT' ,0))
+        pass
+
+    @staticmethod
+    def draw(boy):
+        boy.image.clip_draw(boy.frame * 100, boy.action * 100, 100, 100, boy.x+30, boy.y+30,200,200)
+
+    pass
 
 class Sleep:
     @staticmethod
@@ -101,9 +136,10 @@ class StateMachine:
         self.cur_state = Idle
         self.boy = boy
         self.transitions = {
-            Idle: {right_down:Run, left_down:Run, left_up:Run, right_up:Run, time_out: Sleep},
-            Run:{right_down:Idle, left_down:Idle, left_up:Idle, right_up:Idle,},
-            Sleep: {right_down:Run, left_down:Run, left_up:Run, right_up:Run,space_down: Idle}
+            Idle: {a_down:AutoRun, right_down:Run, left_down:Run, left_up:Run, right_up:Run, time_out: Sleep},
+            Run:{right_down:Idle, left_down:Idle, left_up:Idle, right_up:Idle},
+            Sleep: {right_down:Run, left_down:Run, left_up:Run, right_up:Run,space_down: Idle},
+            AutoRun : {time_out: Idle}
         }
     def handle_event(self, e):
         for check_event, next_state in self.transitions[self.cur_state].items():
